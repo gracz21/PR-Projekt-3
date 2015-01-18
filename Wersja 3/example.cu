@@ -51,44 +51,100 @@ int main(void){
   
   bool turn = true;
   
-  while(true){
-    
-    if(turn){
-      
-      reduce0<<<totalBlocks, threadsPerBlock, threadsPerBlock*sizeof(int)>>>(input, output, size);
-      turn = false;
-      
+	cudaError_t error;
+	
+	cudaEvent_t start;
+    error = cudaEventCreate(&start);
+
+    if (error != cudaSuccess)
+    {
+        fprintf(stderr, "Failed to create start event (error code %s)!\n", cudaGetErrorString(error));
+        exit(EXIT_FAILURE);
     }
-    else{
-      
-      reduce0<<<totalBlocks, threadsPerBlock, threadsPerBlock*sizeof(int)>>>(output, input, size);
-      turn = true;
-    
+
+    cudaEvent_t stop;
+    error = cudaEventCreate(&stop);
+
+    if (error != cudaSuccess)
+    {
+        fprintf(stderr, "Failed to create stop event (error code %s)!\n", cudaGetErrorString(error));
+        exit(EXIT_FAILURE);
     }
-    
-    if(totalBlocks == 1) break;
-    
-    size = totalBlocks;
-    totalBlocks = ceil((double)totalBlocks/threadsPerBlock);
-    
-  }
 
-  thrust::host_vector<int> data_h_o;
-  
-  if(turn)
-    data_h_o = data_v_i;
-  else 
-    data_h_o = data_v_o;
-  
-  data_v_i.clear();
-  data_v_i.shrink_to_fit();
-  
-  data_v_o.clear();
-  data_v_o.shrink_to_fit();
-  
-  cout<<data_h_o[0]<<endl;
+    error = cudaEventRecord(start, NULL);
 
+    if (error != cudaSuccess)
+    {
+        fprintf(stderr, "Failed to record start event (error code %s)!\n", cudaGetErrorString(error));
+        exit(EXIT_FAILURE);
+    }
+	
+	while(true) {	
+		if(turn) {
+			//Odpal kernel (tablica wejœciowa jako input, wyjœciowa jako output
+			reduce0<<<totalBlocks, threadsPerBlock, threadsPerBlock*sizeof(int)>>>(input, output, size);
+			turn = false;
+		} else {
+			//Odpal kernel (tablica wyjœciowa jako input, wejœciowa jako output
+			reduce0<<<totalBlocks, threadsPerBlock, threadsPerBlock*sizeof(int)>>>(output, input, size);
+			turn = true;
+		}
+		
+		//Je¿eli zosta³ jeden blok, to obliczenia zosta³y zakoñczone
+		if(totalBlocks == 1) break;
+		
+		//Korzystaj tylko z zakresu tablicy odpowiadaj¹cemu liczbie bloków z poprzedniej iteracji
+		size = totalBlocks;
+		//Oblicz now¹ liczbê bloków
+		totalBlocks = ceil((double)totalBlocks/threadsPerBlock);
+	}
+	
+	error = cudaEventRecord(stop, NULL);
 
-  return 0;
+    if (error != cudaSuccess)
+    {
+        fprintf(stderr, "Failed to record stop event (error code %s)!\n", cudaGetErrorString(error));
+        exit(EXIT_FAILURE);
+    }
 
+    // Wait for the stop event to complete
+    error = cudaEventSynchronize(stop);
+
+    if (error != cudaSuccess)
+    {
+        fprintf(stderr, "Failed to synchronize on the stop event (error code %s)!\n", cudaGetErrorString(error));
+        exit(EXIT_FAILURE);
+    }
+
+    float msecTotal = 0.0f;
+    error = cudaEventElapsedTime(&msecTotal, start, stop);
+
+    if (error != cudaSuccess)
+    {
+        fprintf(stderr, "Failed to get time elapsed between events (error code %s)!\n", cudaGetErrorString(error));
+        exit(EXIT_FAILURE);
+    }
+	
+	//Wektor wyjœciowy hosta
+	thrust::host_vector<int> data_h_o;
+	  
+	//Pobierz wynik
+	if(turn)
+		//Wynik w tablicy wejœciowej device
+		data_h_o = data_v_i;
+	else
+		//Wynik w tablicy wyjœciowej device
+		data_h_o = data_v_o;
+	
+	//Wyczyœæ wektory
+	data_v_i.clear();
+	data_v_i.shrink_to_fit();
+	  
+	data_v_o.clear();
+	data_v_o.shrink_to_fit();
+	  
+	//Wypisz wynik
+	cout<< "Wynik: " << data_h_o[0] << endl << "W czasie:" << msecTotal << endl;
+
+	return 0;
 }

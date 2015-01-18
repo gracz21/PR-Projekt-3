@@ -64,7 +64,35 @@ int main(void) {
 	
 	//Czy kolej na zamianê tablicy wejœciowej z wyjœciow¹?
 	bool turn = true;
-	  
+	
+	cudaError_t error;
+	
+	cudaEvent_t start;
+    error = cudaEventCreate(&start);
+
+    if (error != cudaSuccess)
+    {
+        fprintf(stderr, "Failed to create start event (error code %s)!\n", cudaGetErrorString(error));
+        exit(EXIT_FAILURE);
+    }
+
+    cudaEvent_t stop;
+    error = cudaEventCreate(&stop);
+
+    if (error != cudaSuccess)
+    {
+        fprintf(stderr, "Failed to create stop event (error code %s)!\n", cudaGetErrorString(error));
+        exit(EXIT_FAILURE);
+    }
+
+    error = cudaEventRecord(start, NULL);
+
+    if (error != cudaSuccess)
+    {
+        fprintf(stderr, "Failed to record start event (error code %s)!\n", cudaGetErrorString(error));
+        exit(EXIT_FAILURE);
+    }
+	
 	while(true) {	
 		if(turn) {
 			//Odpal kernel (tablica wejœciowa jako input, wyjœciowa jako output
@@ -85,6 +113,32 @@ int main(void) {
 		totalBlocks = ceil((double)totalBlocks/threadsPerBlock);
 	}
 	
+	error = cudaEventRecord(stop, NULL);
+
+    if (error != cudaSuccess)
+    {
+        fprintf(stderr, "Failed to record stop event (error code %s)!\n", cudaGetErrorString(error));
+        exit(EXIT_FAILURE);
+    }
+
+    // Wait for the stop event to complete
+    error = cudaEventSynchronize(stop);
+
+    if (error != cudaSuccess)
+    {
+        fprintf(stderr, "Failed to synchronize on the stop event (error code %s)!\n", cudaGetErrorString(error));
+        exit(EXIT_FAILURE);
+    }
+
+    float msecTotal = 0.0f;
+    error = cudaEventElapsedTime(&msecTotal, start, stop);
+
+    if (error != cudaSuccess)
+    {
+        fprintf(stderr, "Failed to get time elapsed between events (error code %s)!\n", cudaGetErrorString(error));
+        exit(EXIT_FAILURE);
+    }
+	
 	//Wektor wyjœciowy hosta
 	thrust::host_vector<int> data_h_o;
 	  
@@ -104,7 +158,7 @@ int main(void) {
 	data_v_o.shrink_to_fit();
 	  
 	//Wypisz wynik
-	cout<<data_h_o[0]<<endl;
+	cout<< "Wynik: " << data_h_o[0] << endl << "W czasie:" << msecTotal << endl;
 
 	return 0;
 }

@@ -81,7 +81,7 @@ int main(void) {
 	data_v_o.clear();
 	data_v_o.shrink_to_fit();
 	  
-	out<<data_h_o[0]<<endl;
+	cout<<data_h_o[0]<<endl;
 
 	return 0;
 }

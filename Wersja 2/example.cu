@@ -41,7 +41,7 @@ int main(void){
   //initialize the data, all values will be 1
   //so the final sum will be equal to size
 
-  int threadsPerBlock = 256;
+  int threadsPerBlock = 1024;
   int totalBlocks = (size+(threadsPerBlock-1))/threadsPerBlock;
   
   thrust::device_vector<int> data_v_i = data_h_i;

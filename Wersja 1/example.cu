@@ -54,7 +54,7 @@ int main(void) {
 	//Liczba w¹tków na blok
 	int threadsPerBlock = 1024;
 	//Liczba bloków (na pocz¹tku)
-	int totalBlocks = ceil((double)threadsPerBlock/threadsPerBlock);
+	int totalBlocks = (size+(threadsPerBlock-1))/threadsPerBlock;
 
 	//Wektor wejœciowy i wyjœciowy device
 	thrust::device_vector<int> data_v_i = data_h_i;

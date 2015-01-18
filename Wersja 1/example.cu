@@ -7,6 +7,8 @@
 #include <sstream>
 #include <string>
 #include <fstream>
+#include <cuda.h>
+#include <cuda_runtime.h>
 
 using namespace std;
 

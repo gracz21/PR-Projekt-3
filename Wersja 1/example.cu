@@ -11,84 +11,77 @@
 using namespace std;
 
 
-__global__ void reduce0(int *g_idata, int *g_odata, int size){
+__global__ void reduce0(int *g_idata, int *g_odata, int size) {
 
-   extern __shared__ int sdata[];
+	extern __shared__ int sdata[];
 
-   unsigned int tid = threadIdx.x;
-   unsigned int i = blockIdx.x*blockDim.x + threadIdx.x;
-   sdata[tid] = 0;
-   if(i<size)
-     sdata[tid] = g_idata[i];
-   __syncthreads();
+	unsigned int tid = threadIdx.x;
+	unsigned int i = blockIdx.x*blockDim.x + threadIdx.x;
+	sdata[tid] = 0;
+	if(i < size)
+		sdata[tid] = g_idata[i];
+	__syncthreads();
 
-   for(unsigned int s=1; s < blockDim.x; s *= 2) {
+	for(unsigned int s=1; s < blockDim.x; s *= 2) {
         if (tid % (2*s) == 0) {
          sdata[tid] += sdata[tid + s];
         }
         __syncthreads();
-     }
+    }
 
-   if (tid == 0) g_odata[blockIdx.x] = sdata[0];
+	if (tid == 0) g_odata[blockIdx.x] = sdata[0];
 }
 
-int main(void){
+int main(void) {
+	//Deklaracja rozmiaru
+	int size = 939289;
+	//Wektor wejœciowy hosta
+	thrust::host_vector<int> data_h_i(size, 1);
 
-  int size = 939289;
-  thrust::host_vector<int> data_h_i(size, 1);
+	//Liczba w¹tków na blok
+	int threadsPerBlock = 1024;
+	//Liczba bloków (na pocz¹tku)
+	int totalBlocks = (size+(threadsPerBlock-1))/threadsPerBlock;
 
-  //initialize the data, all values will be 1
-  //so the final sum will be equal to size
+	//Wektor wejœciowy i wyjœciowy device
+	thrust::device_vector<int> data_v_i = data_h_i;
+	thrust::device_vector<int> data_v_o(totalBlocks);
 
-  int threadsPerBlock = 256;
-  int totalBlocks = (size+(threadsPerBlock-1))/threadsPerBlock;
-  
-  thrust::device_vector<int> data_v_i = data_h_i;
-  thrust::device_vector<int> data_v_o(totalBlocks);
+	//WskaŸniki na wektory device
+	int* output = thrust::raw_pointer_cast(data_v_o.data());
+	int* input = thrust::raw_pointer_cast(data_v_i.data());
+	  
+	bool turn = true;
+	  
+	while(true) {	
+		if(turn) {  
+		  reduce0<<<totalBlocks, threadsPerBlock, threadsPerBlock*sizeof(int)>>>(input, output, size);
+		  turn = false;
+		} else {
+		  reduce0<<<totalBlocks, threadsPerBlock, threadsPerBlock*sizeof(int)>>>(output, input, size);
+		  turn = true;
+		}
+		
+		if(totalBlocks == 1) break;
+		
+		size = totalBlocks;
+		totalBlocks = ceil((double)totalBlocks/threadsPerBlock);
+	}
 
-  int* output = thrust::raw_pointer_cast(data_v_o.data());
-  int* input = thrust::raw_pointer_cast(data_v_i.data());
-  
-  bool turn = true;
-  
-  while(true){
-    
-    if(turn){
-      
-      reduce0<<<totalBlocks, threadsPerBlock, threadsPerBlock*sizeof(int)>>>(input, output, size);
-      turn = false;
-      
-    }
-    else{
-      
-      reduce0<<<totalBlocks, threadsPerBlock, threadsPerBlock*sizeof(int)>>>(output, input, size);
-      turn = true;
-    
-    }
-    
-    if(totalBlocks == 1) break;
-    
-    size = totalBlocks;
-    totalBlocks = ceil((double)totalBlocks/threadsPerBlock);
-    
-  }
+	thrust::host_vector<int> data_h_o;
+	  
+	if(turn)
+		data_h_o = data_v_i;
+	else 
+		data_h_o = data_v_o;
+	  
+	data_v_i.clear();
+	data_v_i.shrink_to_fit();
+	  
+	data_v_o.clear();
+	data_v_o.shrink_to_fit();
+	  
+	out<<data_h_o[0]<<endl;
 
-  thrust::host_vector<int> data_h_o;
-  
-  if(turn)
-    data_h_o = data_v_i;
-  else 
-    data_h_o = data_v_o;
-  
-  data_v_i.clear();
-  data_v_i.shrink_to_fit();
-  
-  data_v_o.clear();
-  data_v_o.shrink_to_fit();
-  
-  cout<<data_h_o[0]<<endl;
-
-
-  return 0;
-
+	return 0;
 }

@@ -3,7 +3,7 @@
 #include <thrust/device_vector.h>
 #include <thrust/sort.h>
 #include <ctime>
-#include <sys/time.h>
+#include <time.h>
 #include <sstream>
 #include <string>
 #include <fstream>
